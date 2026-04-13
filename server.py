@@ -91,7 +91,8 @@ class DataAnalyzer:
     """Clase para procesar reglas de alertas, validar thresholds e implementar la lógica de negocio."""
     def __init__(self):
         # Inicialmente podemos establecer algún umbral de ejemplo
-        self.temp_max = 35.0
+        self.temp_aire_max = 35.0
+        self.temp_suelo_max = 28.0
         self.humedad_suelo_min = 20.0
         self.luz_minima = 100.0
 
@@ -100,8 +101,10 @@ class DataAnalyzer:
         Evalúa 'data' y si se excede un umbral, retorna el tipo de alerta.
         Retorna 'OK' si todo está correcto.
         """
-        if float(data.get("temperatura_aire", 0)) > self.temp_max:
+        if float(data.get("temperatura_aire", 0)) > self.temp_aire_max:
             return "ALERTA_TEMPERATURA_ALTA"
+        if float(data.get("temperatura_suelo", 0)) > self.temp_suelo_max:
+            return "ALERTA_TEMPERATURA_SUELO_ALTA"
         if float(data.get("humedad_suelo", 100)) < self.humedad_suelo_min:
             return "ALERTA_HUMEDAD_BAJA"
         if float(data.get("luz", 1000)) < self.luz_minima:

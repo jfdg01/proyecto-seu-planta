@@ -24,7 +24,8 @@ def main():
                 "luz_fotovoltaica": round(random.uniform(200.0, 1000.0), 2),     # Ej: Luxes
                 "temperatura_aire": round(random.uniform(15.0, 35.0), 2),        # Ej: ºC
                 "humedad_aire": round(random.uniform(30.0, 80.0), 2),            # Ej: %
-                "humedad_suelo": round(random.uniform(10.0, 60.0), 2)            # Ej: %
+                "humedad_suelo": round(random.uniform(10.0, 60.0), 2),           # Ej: %
+                "temperatura_suelo": round(random.uniform(10.0, 30.0), 2)        # Ej: ºC
             }
             
             payload = json.dumps(datos_simulados)
