@@ -32,14 +32,14 @@ Centro de control y procesamiento de datos.
 Basado en la guía docente para la entrega del **24 de abril de 2026**:
 
 ### Requisitos Técnicos
-1. **Arquitectura:** Al menos dos dispositivos MCU comunicados entre sí o con un servidor central.
-2. **Programación:** Uso obligatorio de la biblioteca `TaskScheduler`.
-3. **Conectividad:** Punto de acceso Wi-Fi o conexión a infraestructura existente.
-4. **Protocolo:** Comunicación mediante **MQTT**.
-5. **Componentes:** Integración de al menos cinco tipos de sensores/actuadores (3 vistos en clase + 2 adicionales).
-6. **Base de Datos:** Implementación para almacenamiento histórico (series temporales).
-7. **Dashboard:** Panel de control con gráficas históricas y en tiempo real.
-8. **Notificaciones:** Sistema de alertas automáticas integrado en la web.
+- [ ] 1. **Arquitectura:** Al menos dos dispositivos MCU comunicados entre sí o con un servidor central.
+- [ ] 2. **Programación:** Uso obligatorio de la biblioteca `TaskScheduler`.
+- [ ] 3. **Conectividad:** Punto de acceso Wi-Fi o conexión a infraestructura existente.
+- [x] 4. **Protocolo:** Comunicación mediante **MQTT**.
+- [ ] 5. **Componentes:** Integración de al menos cinco tipos de sensores/actuadores (3 vistos en clase + 2 adicionales).
+- [x] 6. **Base de Datos:** Implementación para almacenamiento histórico (series temporales).
+- [ ] 7. **Dashboard:** Panel de control con gráficas históricas y en tiempo real.
+- [x] 8. **Notificaciones:** Sistema de alertas automáticas integrado en la web.
 
 ### Documentación Requerida
 El documento final (10-12 páginas) debe incluir:

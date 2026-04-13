@@ -1,5 +1,7 @@
 import json
 import paho.mqtt.client as mqtt
+from influxdb_client import InfluxDBClient, Point, WritePrecision
+from influxdb_client.client.write_api import SYNCHRONOUS
 
 class MQTTManager:
     """Clase encargada de la comunicación MQTT con el broker."""
@@ -54,39 +56,56 @@ class MQTTManager:
 
 class DatabaseManager:
     """Clase para interactuar con InfluxDB u otra base de datos de series temporales."""
-    # //TODO: Requisito 6 - Base de Datos (InfluxDB)
     def __init__(self, host, port, token, org, bucket):
         self.host = host
         self.port = port
         self.token = token
         self.org = org
         self.bucket = bucket
-        # //TODO: Inicializar el cliente (instalar influxdb-client)
-        # self.client = InfluxDBClient(...)
+        
+        # Inicializar el cliente (influxdb-client)
+        self.url = f"http://{self.host}:{self.port}"
+        self.client = InfluxDBClient(url=self.url, token=self.token, org=self.org)
+        self.write_api = self.client.write_api(write_options=SYNCHRONOUS)
     
     def save_sensor_data(self, topic, data):
-        # //TODO: Almacenar los datos de 'data' como serie temporal para análisis histórico.
-        # Por ahora es solo un "placeholder" de la función
-        pass
+        # Almacenar los datos de 'data' como serie temporal para análisis histórico.
+        try:
+            parts = topic.split('/')
+            planta_id = parts[1] if len(parts) > 1 else "desconocida"
+            
+            point = Point("sensor_data").tag("planta_id", planta_id)
+            for key, value in data.items():
+                if isinstance(value, (int, float)):
+                    point.field(key, float(value))
+                else:
+                    point.field(key, str(value))
+                    
+            point.time(None, WritePrecision.NS)
+            self.write_api.write(bucket=self.bucket, org=self.org, record=point)
+        except Exception as e:
+            print(f"[ERROR DB] Error al guardar datos en InfluxDB: {e}")
 
 
 class DataAnalyzer:
     """Clase para procesar reglas de alertas, validar thresholds e implementar la lógica de negocio."""
-    # //TODO: Requisito 8 - Notificaciones y Alertas Automáticas
     def __init__(self):
         # Inicialmente podemos establecer algún umbral de ejemplo
         self.temp_max = 35.0
         self.humedad_suelo_min = 20.0
+        self.luz_minima = 100.0
 
     def check_thresholds(self, data):
         """
         Evalúa 'data' y si se excede un umbral, retorna el tipo de alerta.
         Retorna 'OK' si todo está correcto.
         """
-        if data.get("temperatura_aire", 0) > self.temp_max:
+        if float(data.get("temperatura_aire", 0)) > self.temp_max:
             return "ALERTA_TEMPERATURA_ALTA"
-        if data.get("humedad_suelo", 100) < self.humedad_suelo_min:
+        if float(data.get("humedad_suelo", 100)) < self.humedad_suelo_min:
             return "ALERTA_HUMEDAD_BAJA"
+        if float(data.get("luz", 1000)) < self.luz_minima:
+            return "ALERTA_LUZ_BAJA"
         return "OK"
 
 
@@ -95,11 +114,10 @@ class MonitoringServer:
     def __init__(self):
         print("Inicializando Servidor de Monitorización...")
         # Instanciamos la conexión a DB
-        # //TODO: Rellenar con los tokens correctos
         self.db = DatabaseManager(
             host="localhost", 
             port=8086, 
-            token="adminpassword", 
+            token="my-super-secret-admin-token", 
             org="proyecto_plantas", 
             bucket="sensores"
         )
@@ -129,20 +147,29 @@ class MonitoringServer:
         status = self.analyzer.check_thresholds(data)
 
         # 3. Lógica de interacción con Nodo 2 (Actuadores/Semáforo)
-        if status != "OK":
-            # Extraemos la ID de la planta del topic 'planta/1/sensores' -> '1'
-            try:
-                planta_id = topic.split('/')[1]
-                topic_actuadores = f"planta/{planta_id}/actuadores"
-                
-                # //TODO: Implementar función check_and_notify_node2 real para mandar mensaje a Node 2
+        self.notify_node2(topic, status)
+
+    def notify_node2(self, topic, status):
+        """Notificar al Nodo 2 (actuadores/pantalla/semáforo) sobre el estado actual."""
+        try:
+            planta_id = topic.split('/')[1]
+            topic_actuadores = f"planta/{planta_id}/actuadores"
+            
+            if status != "OK":
                 comando = {
                     "comando": "encender_alerta",
+                    "estado": "ALERTA",
                     "motivo": status
                 }
-                self.mqtt.publish(topic_actuadores, comando)
-            except IndexError:
-                print(f"[WARNING] Topic mal formado: {topic}")
+            else:
+                comando = {
+                    "comando": "apagar_alerta",
+                    "estado": "OK",
+                    "motivo": "Todo correcto"
+                }
+            self.mqtt.publish(topic_actuadores, comando)
+        except IndexError:
+            print(f"[WARNING] Topic mal formado: {topic}")
 
     def start(self):
         self.mqtt.connect_and_loop()
