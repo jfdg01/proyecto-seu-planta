@@ -38,7 +38,7 @@ Basado en la guía docente para la entrega del **24 de abril de 2026**:
 - [x] 4. **Protocolo:** Comunicación mediante **MQTT**.
 - [ ] 5. **Componentes:** Integración de al menos cinco tipos de sensores/actuadores (3 vistos en clase + 2 adicionales).
 - [x] 6. **Base de Datos:** Implementación para almacenamiento histórico (series temporales).
-- [ ] 7. **Dashboard:** Panel de control con gráficas históricas y en tiempo real.
+- [x] 7. **Dashboard:** Panel de control con gráficas históricas y en tiempo real.
 - [x] 8. **Notificaciones:** Sistema de alertas automáticas integrado en la web.
 
 ### Documentación Requerida
