@@ -2,7 +2,9 @@ import json
 import paho.mqtt.client as mqtt
 
 # Configuración del broker MQTT
-BROKER_HOST = "test.mosquitto.org"  # Broker público para pruebas. Se puede cambiar a localhost si se usa uno propio.
+# Requisito 4: Comunicación mediante MQTT
+# Sugerencia: Uso de Docker y Docker Compose para orquestar el broker MQTT
+BROKER_HOST = "127.0.0.1"  # Broker local orquestado por Docker
 BROKER_PORT = 1883
 TOPIC_SUBSCRIPTION = "planta/+/sensores"  # El '+' permite suscribirse a cualquier planta (ej. planta/1/sensores)
 TOPIC_ACTUADORES = "planta/{}/actuadores"  # Para enviar a LCD/Semaforo en Nodo 2
@@ -28,23 +30,25 @@ def on_message(client, userdata, msg):
         
         print(f"\n[DATOS RECIBIDOS] Topic: {msg.topic}")
         print("-" * 30)
-        #TODO: Procesar de forma diferente según el tipo de nodo (fotovoltaico, temp/humedad)
-        # o guardarlo en una Base de Datos y usarlo para la web / gráficas.
         
         for key, value in datos.items():
             print(f"  {key}: {value}")
             
         print("-" * 30)
 
-        #TODO: Lógica de control para determinar si enviar mensaje al Nodo 2 (LCD/LED Semaforo)
-        # Ejemplo: si humedad < 20, enviar advertencia
-        # check_and_notify_node2(client, "1", datos)
+        # //TODO: Requisito 6 - Base de Datos (InfluxDB)
+        # Almacenar los datos de 'datos' como serie temporal para análisis histórico.
+        
+        # //TODO: Requisito 8 - Notificaciones y Alertas Automáticas
+        # Evaluar 'datos' y si se excede un umbral, enviar notificación/alerta al dashboard.
+        
+        # //TODO: Lógica de interacción con Nodo 2
+        # Si hay un error, enviar un mensaje MQTT a TOPIC_ACTUADORES para actualizar LCD/Semáforo.
 
     except json.JSONDecodeError:
         print(f"[ERROR] El mensaje recibido en {msg.topic} no es un JSON válido: {msg.payload}")
     except Exception as e:
         print(f"[ERROR] Error inesperado al procesar mensaje: {e}")
-
 # //TODO: Implementar función check_and_notify_node2 para mandar mensaje a Node 2
 
 
