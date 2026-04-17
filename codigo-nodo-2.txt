@@ -1,0 +1,170 @@
+#include <WiFi.h>
+#include <PubSubClient.h>
+#include <TaskScheduler.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+// --- CONFIGURACIÓN WI-FI Y MQTT ---
+const char* ssid = "pocox";
+const char* password = "holaaaaa";
+const char* mqtt_server = "10.180.116.25";
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+// --- CONFIGURACIÓN HARDWARE ---
+// Definimos los pines I2C explícitamente para el ESP32-C6
+#define I2C_SDA 6
+#define I2C_SCL 7
+
+// LCD I2C en la dirección 0x27 (16 columnas, 2 filas)
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+// Pines del Semáforo LED
+const int ledVerde = 18;
+const int ledAmarillo = 19;
+const int ledRojo = 20;
+
+// Variables globales para guardar el último estado recibido
+String mensajeLCD = "Esperando datos ";
+int estadoSemaforo = 0; // 0: Verde, 1: Amarillo, 2: Rojo
+
+// --- CONFIGURACIÓN TASKSCHEDULER ---
+Scheduler runner;
+
+// Declaración de las funciones de las tareas
+void tareaMqttControl();
+void tareaActualizarDisplay();
+
+// Tarea 1: Mantiene la conexión MQTT y procesa mensajes entrantes (cada 100ms)
+Task tMqtt(100, TASK_FOREVER, &tareaMqttControl, &runner, true);
+
+// Tarea 2: Actualiza el LCD y los LEDs (cada 1 segundo)
+Task tDisplay(1000, TASK_FOREVER, &tareaActualizarDisplay, &runner, true);
+
+// --- FUNCIÓN CALLBACK MQTT (Se ejecuta al recibir un mensaje) ---
+// El servidor envía JSON: {"comando":"...","estado":"OK/ALERTA","motivo":"..."}
+void mqttCallback(char* topic, byte* payload, unsigned int length) {
+  String mensaje = "";
+  for (int i = 0; i < length; i++) {
+    mensaje += (char)payload[i];
+  }
+  mensaje.trim();
+
+  Serial.println("Mensaje recibido en " + String(topic) + ": [" + mensaje + "]");
+
+  // Extraemos el campo "estado" del JSON manualmente
+  // Python json.dumps usa ": " (con espacio), por eso buscamos "estado": "
+  String estado = "";
+  int idxEstado = mensaje.indexOf("\"estado\": \"");
+  if (idxEstado != -1) {
+    int start = idxEstado + 11; // longitud de "estado": "
+    int end = mensaje.indexOf("\"", start);
+    estado = mensaje.substring(start, end);
+  }
+
+  // Extraemos el campo "motivo" para dar más detalle en el LCD
+  String motivo = "";
+  int idxMotivo = mensaje.indexOf("\"motivo\": \"");
+  if (idxMotivo != -1) {
+    int start = idxMotivo + 11; // longitud de "motivo": "
+    int end = mensaje.indexOf("\"", start);
+    motivo = mensaje.substring(start, end);
+  }
+
+  Serial.println("Estado: " + estado + " | Motivo: " + motivo);
+
+  if (estado == "OK") {
+    estadoSemaforo = 0;
+    mensajeLCD = "Plantas OK      "; // 16 chars
+  } else if (estado == "ALERTA") {
+    if (motivo == "ALERTA_HUMEDAD_BAJA") {
+      estadoSemaforo = 1; // Amarillo
+      mensajeLCD = "Falta agua!     "; // 16 chars
+    } else if (motivo == "ALERTA_LUZ_BAJA") {
+      estadoSemaforo = 1; // Amarillo
+      mensajeLCD = "Falta luz!      "; // 16 chars
+    } else if (motivo == "ALERTA_TEMPERATURA_ALTA" || motivo == "ALERTA_TEMPERATURA_SUELO_ALTA") {
+      estadoSemaforo = 2; // Rojo
+      mensajeLCD = "TEMP CRITICA!   "; // 16 chars
+    } else {
+      estadoSemaforo = 1; // Amarillo genérico
+      mensajeLCD = "Alerta!         "; // 16 chars
+    }
+  }
+}
+
+// --- FUNCIONES DE RECONEXIÓN ---
+void setup_wifi() {
+  delay(10);
+  Serial.print("Conectando a ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nWiFi conectado. IP: " + WiFi.localIP().toString());
+}
+
+void reconnect() {
+  if (!client.connected()) {
+    Serial.print("Intentando conexión MQTT...");
+    if (client.connect("Nodo2_Display")) {
+      Serial.println("conectado");
+      // Escuchamos actuadores de todas las plantas (planta/+/actuadores)
+      client.subscribe("planta/+/actuadores");
+    } else {
+      Serial.print("fallo, rc=");
+      Serial.print(client.state());
+      Serial.println(" reintentando...");
+    }
+  }
+}
+
+// --- FUNCIONES DE LAS TAREAS ---
+void tareaMqttControl() {
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+}
+
+void tareaActualizarDisplay() {
+  // 1. Actualizar Semáforo
+  digitalWrite(ledVerde,    estadoSemaforo == 0 ? HIGH : LOW);
+  digitalWrite(ledAmarillo, estadoSemaforo == 1 ? HIGH : LOW);
+  digitalWrite(ledRojo,     estadoSemaforo == 2 ? HIGH : LOW);
+
+  // 2. Actualizar LCD
+  lcd.setCursor(0, 0);
+  lcd.print("Estado:         "); // 16 chars
+  lcd.setCursor(0, 1);
+  lcd.print(mensajeLCD);
+}
+
+// --- SETUP PRINCIPAL ---
+void setup() {
+  Serial.begin(9600);
+
+  pinMode(ledVerde, OUTPUT);
+  pinMode(ledAmarillo, OUTPUT);
+  pinMode(ledRojo, OUTPUT);
+
+  Wire.begin(I2C_SDA, I2C_SCL);
+
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("Iniciando...");
+
+  setup_wifi();
+
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(mqttCallback);
+}
+
+// --- LOOP PRINCIPAL ---
+void loop() {
+  runner.execute();
+}

@@ -1,0 +1,134 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: Alertas Plantas
+    folder: Alertas
+    interval: 1m
+    rules:
+
+      - uid: alerta_temperatura_alta
+        title: "Temperatura Alta (>35°C)"
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: influxdb-plantas
+            model:
+              refId: A
+              query: >
+                from(bucket: "sensores")
+                  |> range(start: -5m)
+                  |> filter(fn: (r) => r._measurement == "sensor_data" and r._field == "temperatura_aire")
+                  |> last()
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    params: [35]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+        noDataState: NoData
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: "Temperatura del aire por encima de 35°C"
+          description: "Valor actual: {{ $values.A }}°C"
+        labels:
+          severity: critica
+
+      - uid: alerta_humedad_baja
+        title: "Humedad Suelo Baja (<20%)"
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: influxdb-plantas
+            model:
+              refId: A
+              query: >
+                from(bucket: "sensores")
+                  |> range(start: -5m)
+                  |> filter(fn: (r) => r._measurement == "sensor_data" and r._field == "humedad_suelo")
+                  |> last()
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    params: [20]
+                    type: lt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+        noDataState: NoData
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: "Humedad del suelo por debajo del 20%"
+          description: "Valor actual: {{ $values.A }}%"
+        labels:
+          severity: alta
+
+      - uid: alerta_luz_baja
+        title: "Luz Insuficiente (<100)"
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: influxdb-plantas
+            model:
+              refId: A
+              query: >
+                from(bucket: "sensores")
+                  |> range(start: -5m)
+                  |> filter(fn: (r) => r._measurement == "sensor_data" and r._field == "luz")
+                  |> last()
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    params: [100]
+                    type: lt
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
+        noDataState: NoData
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: "Nivel de luz por debajo de 100"
+          description: "Valor actual: {{ $values.A }}"
+        labels:
+          severity: alta

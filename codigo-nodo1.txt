@@ -1,0 +1,134 @@
+#include <WiFi.h>
+#include <PubSubClient.h>
+#include <TaskScheduler.h>
+#include <DHT.h>
+
+// ==========================================
+// Configuración de Wi-Fi y MQTT
+// ==========================================
+const char* ssid = "pocox";
+const char* password = "holaaaaa";
+const char* mqtt_server = "10.180.116.25";
+const int mqtt_port = 1883;
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+// ==========================================
+// Configuración de Sensores
+// ==========================================
+#define DHTPIN 4
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
+
+#define LDR_PIN  2   // Pin analógico para el sensor fotovoltaico
+#define SOIL_PIN 0   // Pin analógico para la humedad del suelo
+
+// ==========================================
+// Configuración de TaskScheduler
+// ==========================================
+Scheduler ts;
+
+void leerYPublicarSensores();
+void tareaMqttControl();
+
+// Tarea 1: Mantiene la conexión MQTT activa (cada 100ms, igual que Nodo 2)
+Task tMqtt(100, TASK_FOREVER, &tareaMqttControl, &ts, true);
+
+// Tarea 2: Lee sensores y publica al servidor (cada 5 segundos)
+Task tSensores(5000, TASK_FOREVER, &leerYPublicarSensores, &ts, true);
+
+// ==========================================
+// Funciones de Conexión
+// ==========================================
+void setup_wifi() {
+  delay(10);
+  Serial.print("Conectando a ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nWiFi conectado. IP: " + WiFi.localIP().toString());
+}
+
+void reconnect() {
+  // Intento único (no bloqueante) para no interferir con TaskScheduler
+  if (!client.connected()) {
+    Serial.print("Intentando conexión MQTT...");
+    String clientId = "Nodo1-Jardin-" + String(random(0xffff), HEX);
+    if (client.connect(clientId.c_str())) {
+      Serial.println("Conectado al broker MQTT");
+    } else {
+      Serial.print("Fallo, rc=");
+      Serial.println(client.state());
+    }
+  }
+}
+
+// ==========================================
+// Tarea MQTT: Mantiene la conexión viva
+// ==========================================
+void tareaMqttControl() {
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+}
+
+// ==========================================
+// Tarea Principal: Lectura y Envío (MQTT)
+// ==========================================
+void leerYPublicarSensores() {
+  if (!client.connected()) {
+    return;
+  }
+
+  // 1. Leer temperatura y humedad del aire (DHT)
+  float humedad_aire = dht.readHumidity();
+  float temperatura_aire = dht.readTemperature();
+
+  if (isnan(humedad_aire) || isnan(temperatura_aire)) {
+    Serial.println("Error al leer del sensor DHT!");
+    return;
+  }
+
+  // 2. Leer sensor fotovoltaico (LDR) — 0 a 4095 en ESP32
+  int luz = analogRead(LDR_PIN);
+
+  // 3. Leer humedad del suelo — valor crudo ADC (0-4095), el servidor convierte a %
+  int humedad_suelo = analogRead(SOIL_PIN);
+
+  // Construir JSON con los nombres de campo que espera el servidor
+  char payload[128];
+  sprintf(payload,
+    "{\"temperatura_aire\": %.2f, \"humedad_aire\": %.2f, \"luz\": %d, \"humedad_suelo\": %d}",
+    temperatura_aire, humedad_aire, luz, humedad_suelo);
+
+  client.publish("planta/1/sensores", payload);
+
+  Serial.printf("Enviado -> Temp: %.2fC | Hum.Aire: %.2f%% | Luz: %d | Hum.Suelo (raw): %d\n",
+    temperatura_aire, humedad_aire, luz, humedad_suelo);
+}
+
+// ==========================================
+// Configuración Inicial
+// ==========================================
+void setup() {
+  Serial.begin(115200);
+  delay(3000);
+  dht.begin();
+
+  setup_wifi();
+  client.setServer(mqtt_server, mqtt_port);
+
+  Serial.println("Nodo 1 iniciado. TaskScheduler activo.");
+}
+
+// ==========================================
+// Bucle Principal
+// ==========================================
+void loop() {
+  ts.execute();
+}

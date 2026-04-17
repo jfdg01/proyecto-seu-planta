@@ -92,7 +92,6 @@ class DataAnalyzer:
     def __init__(self):
         # Inicialmente podemos establecer algún umbral de ejemplo
         self.temp_aire_max = 35.0
-        self.temp_suelo_max = 28.0
         self.humedad_suelo_min = 20.0
         self.luz_minima = 100.0
 
@@ -103,8 +102,6 @@ class DataAnalyzer:
         """
         if float(data.get("temperatura_aire", 0)) > self.temp_aire_max:
             return "ALERTA_TEMPERATURA_ALTA"
-        if float(data.get("temperatura_suelo", 0)) > self.temp_suelo_max:
-            return "ALERTA_TEMPERATURA_SUELO_ALTA"
         if float(data.get("humedad_suelo", 100)) < self.humedad_suelo_min:
             return "ALERTA_HUMEDAD_BAJA"
         if float(data.get("luz", 1000)) < self.luz_minima:
@@ -135,8 +132,20 @@ class MonitoringServer:
             on_message_callback=self.process_incoming_data
         )
 
+    def preprocess_data(self, data):
+        """Convierte valores crudos ADC a unidades reales antes de procesar."""
+        processed = dict(data)
+        if "humedad_suelo" in processed:
+            raw = float(processed["humedad_suelo"])
+            valor_seco, valor_mojado = 3690, 1200
+            pct = (raw - valor_seco) / (valor_mojado - valor_seco) * 100
+            processed["humedad_suelo"] = round(max(0.0, min(100.0, pct)), 2)
+        return processed
+
     def process_incoming_data(self, topic, data):
         """Flujo principal cuando un paquete MQTT entra al sistema."""
+        data = self.preprocess_data(data)
+
         print(f"\n[DATOS RECIBIDOS] Topic: {topic}")
         print("-" * 30)
         for key, value in data.items():

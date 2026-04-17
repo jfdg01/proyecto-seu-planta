@@ -21,11 +21,10 @@ def main():
         while True:
             # Generamos datos aleatorios simulando los 3 sensores requeridos
             datos_simulados = {
-                "luz_fotovoltaica": round(random.uniform(200.0, 1000.0), 2),     # Ej: Luxes
-                "temperatura_aire": round(random.uniform(15.0, 35.0), 2),        # Ej: ºC
-                "humedad_aire": round(random.uniform(30.0, 80.0), 2),            # Ej: %
-                "humedad_suelo": round(random.uniform(10.0, 60.0), 2),           # Ej: %
-                "temperatura_suelo": round(random.uniform(10.0, 30.0), 2)        # Ej: ºC
+                "luz": random.randint(50, 4095),           # ADC crudo LDR (0-4095)
+                "temperatura_aire": round(random.uniform(15.0, 38.0), 2),  # °C directo del DHT
+                "humedad_aire": round(random.uniform(30.0, 80.0), 2),      # % directo del DHT
+                "humedad_suelo": random.randint(1200, 3690),  # ADC crudo: 1200=mojado, 3690=seco
             }
             
             payload = json.dumps(datos_simulados)
